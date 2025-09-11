@@ -30,8 +30,5 @@
     "tailwindcss": "^3.3.5",
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
-  },
-  "resolutions": {
-    "ansi-styles": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-6.2.1.tgz"
   }
 }
