@@ -666,6 +666,41 @@ function App() {
       }
     }, [gameMode, currentTheme.colors, dailyChallengeMoves]);
 
+    // Arcade Mode setup
+    const [arcadeLevel, setArcadeLevel] = useState(1);
+    const [arcadeGoal, setArcadeGoal] = useState(2000);
+    const [arcadeMoves, setArcadeMoves] = useState(30);
+    const [arcadeGrid, setArcadeGrid] = useState<string[][] | null>(null);
+
+    // Generate arcade grid
+    useEffect(() => {
+      if (gameMode === 'arcadeMode') {
+        const newGrid = generateValidGrid(8, 8, currentTheme.colors);
+        setArcadeGrid(newGrid);
+        setMovesLeft(arcadeMoves);
+        setScore(0);
+        setIsGameOver(false);
+        setGameOver(false);
+      }
+    }, [gameMode, currentTheme.colors, arcadeMoves]);
+
+    // Multiplayer Mode setup
+    const [multiplayerGrid, setMultiplayerGrid] = useState<string[][] | null>(null);
+    const [multiplayerGoal, setMultiplayerGoal] = useState(6000);
+    const [multiplayerMoves, setMultiplayerMoves] = useState(50);
+
+    // Generate multiplayer grid
+    useEffect(() => {
+      if (gameMode === 'multiplayerMode') {
+        const newGrid = generateValidGrid(8, 8, currentTheme.colors);
+        setMultiplayerGrid(newGrid);
+        setMovesLeft(multiplayerMoves);
+        setScore(0);
+        setIsGameOver(false);
+        setGameOver(false);
+      }
+    }, [gameMode, currentTheme.colors, multiplayerMoves]);
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         {gameMode === 'menu' && (
@@ -796,12 +831,37 @@ function App() {
         )}
 
         {/* Arcade Mode */}
-        {gameMode === 'arcadeMode' && (
+        {gameMode === 'arcadeMode' && arcadeGrid && (
           <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">Arcade Mode</h1>
+            <ScoreBoard
+              score={score}
+              currentLevelId={0}
+              goalScore={arcadeGoal}
+              movesLeft={movesLeft}
+            />
             <p className="text-gray-700 mb-4">Endless gameplay with increasing difficulty!</p>
+            <GameGrid
+              width={8}
+              height={8}
+              colors={currentTheme.colors}
+              emojiMap={currentTheme.emojis}
+              onMatch={handleMatch}
+              setGameOver={handleGameOver}
+              hasPossibleMoves={hasPossibleMoves}
+              findAllMatches={findAllMatches}
+              setGrid={setArcadeGrid}
+              activePowerUp={activePowerUp}
+              usePowerUp={usePowerUp}
+              gridColors={currentTheme.colors}
+              movesLeft={movesLeft}
+              setMovesLeft={setMovesLeft}
+              onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
+              setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
+              powerUpInventory={powerUpInventory}
+            />
             <button
-              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 mt-4"
               onClick={() => setGameMode('menu')}
             >
               Back to Menu
@@ -810,10 +870,35 @@ function App() {
         )}
 
         {/* Multiplayer Mode */}
-        {gameMode === 'multiplayerMode' && (
+        {gameMode === 'multiplayerMode' && multiplayerGrid && (
           <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">Multiplayer Mode</h1>
+            <ScoreBoard
+              score={score}
+              currentLevelId={0}
+              goalScore={multiplayerGoal}
+              movesLeft={movesLeft}
+            />
             <p className="text-gray-700 mb-4">Challenge your friends in real-time!</p>
+            <GameGrid
+              width={8}
+              height={8}
+              colors={currentTheme.colors}
+              emojiMap={currentTheme.emojis}
+              onMatch={handleMatch}
+              setGameOver={handleGameOver}
+              hasPossibleMoves={hasPossibleMoves}
+              findAllMatches={findAllMatches}
+              setGrid={setMultiplayerGrid}
+              activePowerUp={activePowerUp}
+              usePowerUp={usePowerUp}
+              gridColors={currentTheme.colors}
+              movesLeft={movesLeft}
+              setMovesLeft={setMovesLeft}
+              onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
+              setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
+              powerUpInventory={powerUpInventory}
+            />
             <button
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
               onClick={() => setGameMode('menu')}
