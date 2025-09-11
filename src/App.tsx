@@ -728,9 +728,11 @@ function App() {
             onLevelSelect={(levelId) => {
               setCurrentLevelId(levelId);
               setGameMode('playing');
-              setScore(0); // Reset score for new level
-              setGameOver(false); // Ensure game is not over
+              setScore(0); // Reset score for newlevel
+              setGameOver(false); // Ensuregame is not over
               setIsGameOver(false);
+              setGrid(null); // Reset the grid
+              setMovesLeft(currentLevelConfig ? currentLevelConfig.maxMoves : 0); // Reset moves
               // MovesLeft will be set by the useEffect when currentLevelConfig updates
             }}
             onBackToMenu={() => setGameMode('menu')}
@@ -916,7 +918,7 @@ function App() {
                 setGameMode('levelSelect'); // Go back to level select after game over
                 setGameOver(false);
                 setIsGameOver(false);
-
+                setGrid(null); // Reset the grid
                 if (!isLevelCompleted) { // Only lose a life if the level was not completed
                   setLives((prev) => Math.max(prev - 1, 0));
                 }
