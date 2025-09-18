@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { GameGrid } from "./components/GameGrid";
 import { ScoreBoard } from "./components/ScoreBoard";
-import { RefreshCw, X, Settings, Info, User, Play, Trophy } from "lucide-react";
+import { RefreshCw, X, Settings, Info, User, Play, Trophy, CalendarDays, Gamepad2, Users, Computer } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LevelMap } from "./components/LevelMap";
 import { LEVEL_DATA, Level } from "./levels";
@@ -9,6 +9,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { ProfileModal } from "./components/ProfileModal";
 import { PowerUpButtons, PowerUpType } from "./components/PowerUpButtons";
 import { GameOverModal } from "./components/GameOverModal";
+import { createSoundManager } from "./soundManager"; // Import sound manager
 
 // 🎨 THEMES
 const THEMES = {
@@ -25,7 +26,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-green-100 to-yellow-100",
     buttonClass:
-      "bg-gradient-to-br from-green-500 to-yellow-500 hover:from-green-600 hover:to-yellow-600",
+      "bg-gradient-to-br from-green-500 to-yellow-500 hover:from-green-600 hover:to-yellow-600 rounded-xl",
     unlockCondition: 0,
     price: 0,
   },
@@ -42,7 +43,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-pink-200 to-purple-200",
     buttonClass:
-      "bg-gradient-to-br from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600",
+      "bg-gradient-to-br from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 rounded-xl",
     unlockCondition: 2,
     price: 1000,
   },
@@ -59,7 +60,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-blue-200 to-indigo-200",
     buttonClass:
-      "bg-gradient-to-br from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600",
+      "bg-gradient-to-br from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 rounded-xl",
     unlockCondition: 5,
     price: 1000,
   },
@@ -76,7 +77,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-yellow-100 to-orange-200",
     buttonClass:
-      "bg-gradient-to-br from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700",
+      "bg-gradient-to-br from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 rounded-xl",
     unlockCondition: 0,
     price: 1000,
   },
@@ -93,7 +94,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-green-100 to-blue-100",
     buttonClass:
-      "bg-gradient-to-br from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600",
+      "bg-gradient-to-br from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-xl",
     unlockCondition: 0,
     price: 1000,
   },
@@ -110,7 +111,7 @@ const THEMES = {
     },
     background: "bg-gradient-to-br from-red-200 to-green-200",
     buttonClass:
-      "bg-gradient-to-br from-red-600 to-green-600 hover:from-red-700 hover:to-green-700",
+      "bg-gradient-to-br from-red-600 to-green-600 hover:from-red-700 hover:to-green-700 rounded-xl",
     unlockCondition: 0,
     price: 1000,
   },
@@ -250,8 +251,9 @@ function MainMenu({
   onDailyChallenge,
   onArcadeMode,
   onMultiplayerMode,
+    onPlayerVsComputerMode,
 }: any) {
-  const heartEmojis = Array(lives).fill("❤️").join("");
+  const heartEmojis = Array(lives).fill("💖").join("");
 
   const livesAnimation = {
     initial: { scale: 1 },
@@ -275,110 +277,148 @@ function MainMenu({
     currentTheme.background ||
     "bg-gradient-to-br from-purple-200 to-blue-100";
   const buttonBaseClass =
-    "text-white font-bold py-2 px-4 rounded-full shadow-sm transition duration-300";
+    "text-white font-bold py-2 px-4 rounded-xl shadow-sm transition duration-300 flex items-center justify-center gap-2";
+
+    const soundManager = React.useRef(createSoundManager()).current;
+
+    const playMoveSound = () => {
+        soundManager.playMove();
+    };
 
   return (
     <div
-      className={`min-h-screen flex flex-col items-center justify-center ${backgroundClass}`}
+      className={`min-h-screen flex flex-col items-center justify-center ${backgroundClass} p-200`}
     >
+      {/* Top Bar */}
+      <div className="absolute top-0 left-0 w-full p-10 flex justify-around items-center">
+        <div className="flex items-center">
+          <span className="text-xl">💖</span>
+          <span className="ml-1">{lives}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-xl"></span>
+          <span className="ml-1">{playerAvatar}</span>
+        </div>
+        <div className="flex items-center">
+          <span className="text-xl">💸</span>
+          <span className="ml-1">{coins}</span>
+        </div>
+      </div>
+
       {/* Title */}
-      <div className="text-center">
-        <h1 className="text-7xl font-extrabold">
+      <motion.div
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="text-center mb-8 mt-16"
+      >
+        <h1 className="text-7xl md:text-8xl font-extrabold leading-tight">
           <span className="bg-gradient-to-r from-pink-500 to-purple-700 bg-clip-text text-transparent drop-shadow-lg">
             MATCH
           </span>
           <span className="text-orange-500 drop-shadow-lg ml-2">3</span>
         </h1>
-        <p className="text-3xl font-bold text-cyan-500 tracking-wider mt-2 drop-shadow-md">
+        <p className="text-3xl md:text-4xl font-bold text-cyan-500 tracking-wider mt-2 drop-shadow-md">
           FUN GAMES
         </p>
-      </div>
-
-      {/* Play Button */}
-      <button
-        onClick={onStart}
-        className={`mt-10 w-20 h-20 rounded-full flex items-center justify-center 
-                   ${currentTheme.buttonClass} 
-                   shadow-xl hover:scale-110 transition duration-300`}
-      >
-        <Play size={40} className="text-white" fill="white" />
-      </button>
-
-      {/* Extra Buttons */}
-      <div className="flex justify-center mt-6 gap-4">
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onSettings}
-        >
-          <Settings className="inline-block mr-1" size={18} /> Settings
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onInfo}
-        >
-          <Info className="inline-block mr-1" size={18} /> Info
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onDevInfo}
-        >
-          <User className="inline-block mr-1" size={18} /> Dev
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onProfile}
-        >
-          <Trophy className="inline-block mr-1" size={18} /> Profile
-        </button>
-      </div>
-
-      {/* New Feature Buttons */}
-      <div className="flex justify-center mt-6 gap-4">
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onDailyChallenge}
-        >
-          Daily Challenge
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onArcadeMode}
-        >
-          Arcade Mode
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-          onClick={onMultiplayerMode}
-        >
-          Multiplayer Mode
-        </button>
-      </div>
-
-      {/* Lives */}
-      <motion.div
-        className="mt-4 text-2xl font-semibold text-red-500"
-        variants={lives === 5 ? livesAnimation : {}}
-        initial="initial"
-        animate={lives === 5 ? "animate" : ""}
-      >
-        Lives: {heartEmojis}
       </motion.div>
 
-      {/* Countdown Timer */}
-      {lives < 5 && timeLeft !== null && (
-        <div className="mt-2 text-lg text-gray-700">
-          Next life in:{" "}
-          <span className="font-bold">{formatTime(timeLeft)}</span>
-        </div>
-      )}
+      {/* Play Button */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ type: "spring", stiffness: 260, damping: 20, delay: 0.5 }}
+        onClick={() => {
+            playMoveSound();
+            onStart();
+        }}
+        className={`mt-10 w-24 h-24  flex items-center justify-center 
+                   ${currentTheme.buttonClass} 
+                   shadow-xl hover:scale-110 transition duration-300 transform-gpu`}
+      >
+        <Play size={50} className="text-white" fill="white" />
+      </motion.button>
 
-      {/* Player Avatar */}
-      <div className="mt-4 text-5xl">{playerAvatar}</div>
-
-      {/* Display Coins */}
-      <div className="mt-4 text-2xl font-semibold text-yellow-500">
-        💸: {coins}
-      </div>
+      {/* Extra Buttons */}
+      <motion.div
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8, duration: 0.6 }}
+        className="flex flex-wrap justify-center mt-6 gap-4 max-w-2xl"
+      >
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onSettings();
+            }}
+        >
+          <Settings size={18} /> Settings
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onInfo();
+            }}
+        >
+          <Info size={18} /> Info
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onDevInfo();
+            }}
+        >
+          <User size={18} /> Dev
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onProfile();
+            }}
+        >
+          <Trophy size={18} /> Profile
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onDailyChallenge();
+            }}
+        >
+          <CalendarDays size={18} /> Daily Challenge
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onArcadeMode();
+            }}
+        >
+          <Gamepad2 size={18} /> Arcade Mode
+        </button>
+        <button
+          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+            onClick={() => {
+                playMoveSound();
+                onMultiplayerMode();
+            }}
+        >
+          <Users size={18} /> Multiplayer Mode
+        </button>
+          <button
+              className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
+              onClick={() => {
+                  playMoveSound();
+                  onPlayerVsComputerMode();
+              }}
+          >
+              <Computer size={18} /> Player vs Computer
+          </button>
+      </motion.div>
     </div>
   );
 }
@@ -399,6 +439,7 @@ function App() {
     | "dailyChallenge"
     | "arcadeMode"
     | "multiplayerMode"
+    | "playerVsComputer"
   >("menu"); // New state for game flow
   const [showSettings, setShowSettings] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -429,6 +470,10 @@ function App() {
   ); // New state for seasonal background
   const [coins, setCoins] = useState(0); // New state for coins
 
+  // Combo score state
+  const [combo, setCombo] = useState(0);
+  const [showCombo, setShowCombo] = useState(false);
+
   // Power-up states
   const [
     powerUpInventory,
@@ -449,6 +494,12 @@ function App() {
     ? LEVEL_DATA.find((l) => l.id === currentLevelId)
     : null;
   const currentTheme = THEMES[selectedTheme];
+
+  // Sound Manager
+  const soundManager = React.useRef(createSoundManager());
+
+  // Background Music
+  const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
 
   // Load customization from storage
   useEffect(() => {
@@ -551,8 +602,9 @@ function App() {
   // Matches handling
   useEffect(() => {
     if (matches.length > 0) {
+      soundManager.current.playMatch(); // Play match sound
       setScore((prev) => {
-        const newScore = prev + matches.length * 10;
+        const newScore = prev + matches.length * 10 * (combo > 0 ? combo : 1);
         // Update high score if current score is higher
         setHighScore((prevHighScore) => Math.max(prevHighScore, newScore));
         return newScore;
@@ -560,8 +612,16 @@ function App() {
       // Award coins for matches
       setCoins((prev) => prev + matches.length * 10);
       setMatches([]);
+
+      // Combo handling
+      setCombo((prev) => prev + 1);
+      setShowCombo(true);
+    } else {
+      // Reset combo if no matches
+      setShowCombo(false);
+      setCombo(0);
     }
-  }, [matches]);
+  }, [matches, combo]);
 
   // Load from storage
   useEffect(() => {
@@ -603,18 +663,22 @@ function App() {
 
   const handleMatch = (newMatches: number[][]) => setMatches(newMatches);
   const handleGameOver = () => {
+    soundManager.current.playGameOver(); // Play game over sound
     setIsGameOver(true);
     setGameOver(true);
   };
 
   // When starting a level
   const handleStartGame = () => {
+    soundManager.current.playStart(); // Play start sound
     setGameMode("levelSelect"); // Navigate to level select screen
   };
 
   // Also apply the same logic when restarting after Game Over
   const resetGame = () => {
     setScore(0);
+    setCombo(0); // Reset combo
+    setShowCombo(false); // Hide combo display
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves);
       const newGrid = generateValidGrid(
@@ -635,6 +699,8 @@ function App() {
     setGameOver(false);
     setGameMode("levelSelect");
     setScore(0); // Reset score
+    setCombo(0); // Reset combo
+    setShowCombo(false); // Hide combo display
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
     }
@@ -654,6 +720,7 @@ function App() {
   useEffect(() => {
     if (gameMode === "playing" && currentLevelConfig) {
       if (score >= currentLevelConfig.goalScore) {
+        soundManager.current.playLevelUp(); // Play level up sound
         setIsGameOver(true);
         setGameOver(true); // Level complete condition
       } else if (movesLeft <= 0 || (grid && !hasPossibleMoves(grid))) {
@@ -675,6 +742,7 @@ function App() {
   };
 
   const usePowerUp = useCallback((type: PowerUpType) => {
+    soundManager.current.playSpecial(); // Play special sound
     setPowerUpInventory((prev) => ({
       ...prev,
       [type]: Math.max(0, prev[type] - 1),
@@ -730,6 +798,11 @@ function App() {
     setGameMode("multiplayerMode");
   };
 
+    const handlePlayerVsComputerMode = () => {
+        // Implement player vs computer mode logic here
+        setGameMode("playerVsComputer");
+    };
+
   // Check if lives are zero and show the ad for lives modal
   useEffect(() => {
     if (lives === 0 && gameMode !== "menu") {
@@ -745,6 +818,8 @@ function App() {
     setShowAdForLives(false);
     setRegenerationTime(null);
   };
+
+  // Daily Challenge```typescript
 
   // Daily Challenge setup
   const [dailyChallengeGrid, setDailyChallengeGrid] = useState<
@@ -767,9 +842,9 @@ function App() {
 
   // Arcade Mode setup
   const [arcadeLevel, setArcadeLevel] = useState(1);
-  const [arcadeGoal, setArcadeGoal] = useState(2000);
+  const [arcadeGoal, setArcadeGoal]= useState(2000);
   const [arcadeMoves, setArcadeMoves] = useState(30);
-  const [arcadeGrid, setArcadeGrid] = useState<string[][] | null>(null);
+  const [arcadeGrid, setArcadeGrid]= useState<string[][] | null>(null);
 
   // Generate arcade grid
   useEffect(() => {
@@ -802,6 +877,61 @@ function App() {
     }
   }, [gameMode, currentTheme.colors, multiplayerMoves]);
 
+    // Player vs Computer Mode setup
+    const [playerVsComputerGrid, setPlayerVsComputerGrid] = useState<string[][] | null>(null);
+    const [playerVsComputerGoal, setPlayerVsComputerGoal] = useState(4000);
+    const [playerVsComputerMoves, setPlayerVsComputerMoves] = useState(40);
+
+    // Generate player vs computer grid
+    useEffect(() => {
+        if (gameMode === "playerVsComputer") {
+            const newGrid = generateValidGrid(8, 8, currentTheme.colors);
+            setPlayerVsComputerGrid(newGrid);
+            setMovesLeft(playerVsComputerMoves);
+            setScore(0);
+            setIsGameOver(false);
+            setGameOver(false);
+        }
+    }, [gameMode, currentTheme.colors, playerVsComputerMoves]);
+
+  // Background Music setup
+  useEffect(() => {
+    backgroundMusicRef.current = new Audio("/music.mp3"); // Replace with your music file
+    backgroundMusicRef.current.loop = true;
+    backgroundMusicRef.current.volume = 0.5; // Adjust volume as needed
+
+    const playMusic = () => {
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.play().catch(error => {
+          console.error("Failed to play background music:", error);
+        });
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        playMusic();
+      } else {
+        if (backgroundMusicRef.current) {
+          backgroundMusicRef.current.pause();
+        }
+      }
+    };
+
+    // Play music when the component mounts and when the tab is visible
+    playMusic();
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      // Clean up the event listener and pause the music when the component unmounts
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.pause();
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center">
       {gameMode === "menu" && (
@@ -820,6 +950,7 @@ function App() {
           onDailyChallenge={handleDailyChallenge}
           onArcadeMode={handleArcadeMode}
           onMultiplayerMode={handleMultiplayerMode}
+            onPlayerVsComputerMode={handlePlayerVsComputerMode}
         />
       )}
 
@@ -849,7 +980,7 @@ function App() {
         >
           <div className="absolute top-4 right-4">
             <button
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
               onClick={handleExitClick}
             >
               <X size={20} />
@@ -886,6 +1017,7 @@ function App() {
             onNoPowerUpsAvailable={() => setShowPurchaseModal(true)} // Show purchase modal
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy} // Set selected power-up
             powerUpInventory={powerUpInventory} // Pass powerUpInventory
+            soundManager={soundManager.current} // Pass soundManager to GameGrid
           />
           <div className="mt-4 flex justify-center">
             <PowerUpButtons
@@ -934,9 +1066,10 @@ function App() {
             onNoPowerUpsAvailable={() => setShowPurchaseModal(true)} // Show purchase modal
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy} // Set selected power-up
             powerUpInventory={powerUpInventory} // Pass powerUpInventory
+            soundManager={soundManager.current} // Pass soundManager to GameGrid
           />
           <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 mt-4"
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
             onClick={() => setGameMode("menu")}
           >
             Back to Menu
@@ -975,9 +1108,10 @@ function App() {
             onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
             powerUpInventory={powerUpInventory}
+            soundManager={soundManager.current} // Pass soundManager to GameGrid
           />
           <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 mt-4"
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
             onClick={() => setGameMode("menu")}
           >
             Back to Menu
@@ -1018,15 +1152,60 @@ function App() {
             onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
             powerUpInventory={powerUpInventory}
+            soundManager={soundManager.current} // Pass soundManager to GameGrid
           />
           <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
             onClick={() => setGameMode("menu")}
           >
             Back to Menu
           </button>
         </div>
       )}
+
+        {/* Player vs Computer Mode */}
+        {gameMode === "playerVsComputer" && playerVsComputerGrid && (
+            <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">
+                    Player vs Computer Mode
+                </h1>
+                <ScoreBoard
+                    score={score}
+                    currentLevelId={0}
+                    goalScore={playerVsComputerGoal}
+                    movesLeft={movesLeft}
+                />
+                <p className="text-gray-700 mb-4">
+                    Challenge the computer!
+                </p>
+                <GameGrid
+                    width={8}
+                    height={8}
+                    colors={currentTheme.colors}
+                    emojiMap={currentTheme.emojis}
+                    onMatch={handleMatch}
+                    setGameOver={handleGameOver}
+                    hasPossibleMoves={hasPossibleMoves}
+                    findAllMatches={findAllMatches}
+                    setGrid={setPlayerVsComputerGrid}
+                    activePowerUp={activePowerUp}
+                    usePowerUp={usePowerUp}
+                    gridColors={currentTheme.colors}
+                    movesLeft={movesLeft}
+                    setMovesLeft={setMovesLeft}
+                    onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
+                    setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
+                    powerUpInventory={powerUpInventory}
+                    soundManager={soundManager.current} // Pass soundManager to GameGrid
+                />
+                <button
+                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
+                    onClick={() => setGameMode("menu")}
+                >
+                    Back to Menu
+                </button>
+            </div>
+        )}
 
       <AnimatePresence>
         {isGameOver && (
@@ -1057,6 +1236,8 @@ function App() {
               setIsGameOver(false);
               setGameMode("levelSelect");
               setScore(0); // Reset score
+              setCombo(0); // Reset combo
+              setShowCombo(false); // Hide combo display
               if (currentLevelConfig) {
                 setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
               }
@@ -1104,13 +1285,13 @@ function App() {
 
       {showInfo && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded shadow-lg">
+          <div className="bg-white p-8 rounded-xl shadow-lg">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Game Information
             </h2>
             <p>Learn more about the game and how to play.</p>
             <button
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl mt-4"
               onClick={() => setShowInfo(false)}
             >
               Close
@@ -1121,13 +1302,13 @@ function App() {
 
       {showDeveloperInfo && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded shadow-lg">
+          <div className="bg-white p-8 rounded-xl shadow-lg">
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Developer Information
             </h2>
             <p>Information about the game developers.</p>
             <button
-              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+              className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl mt-4"
               onClick={() => setShowDeveloperInfo(false)}
             >
               Close
@@ -1149,19 +1330,19 @@ function App() {
             </p>
             <div className="flex justify-center gap-4">
               <button
-                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
                 onClick={() => handlePurchase(selectedPowerUpToBuy, "coins")}
               >
                 Buy for 250 Coins
               </button>
               <button
-                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
                 onClick={() => handlePurchase(selectedPowerUpToBuy, "ad")}
               >
                 Watch Ad for 1
               </button>
               <button
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
                 onClick={() => setShowPurchaseModal(false)}
               >
                 Cancel
@@ -1183,13 +1364,13 @@ function App() {
             </p>
             <div className="flex justify-center gap-4">
               <button
-                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
                 onClick={handleWatchAdForLives}
               >
                 Watch Ad for Lives
               </button>
               <button
-                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300"
+                className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
                 onClick={() => {
                   setShowAdForLives(false);
                   setGameMode("menu"); // Navigate to main menu
@@ -1201,8 +1382,21 @@ function App() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {showCombo && (
+          <motion.div
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-bold text-yellow-500 z-50"
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            Combo x{combo}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
 export default App;
