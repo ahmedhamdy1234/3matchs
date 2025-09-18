@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Square } from './Square';
 import { motion, useAnimation } from 'framer-motion';
 import { PowerUpType } from './PowerUpButtons'; // Import PowerUpType
+import { SoundManager } from '../soundManager'; // Import SoundManager interface
 
 interface GameGridProps {
   width: number;
@@ -21,6 +22,7 @@ interface GameGridProps {
   onNoPowerUpsAvailable: () => void; // New prop to handle no power-ups available
   setSelectedPowerUpToBuy: (type: PowerUpType | null) => void; // New prop to set selected power-up
   powerUpInventory: { [key in PowerUpType]: number }; // New prop for power-up inventory
+  soundManager: SoundManager; // Add soundManager prop
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({
@@ -41,6 +43,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
   onNoPowerUpsAvailable,
   setSelectedPowerUpToBuy,
   powerUpInventory,
+  soundManager,
 }) => {
   const [internalGrid, setInternalGrid] = useState<string[][]>([]);
   const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(null);
@@ -141,6 +144,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
     newGrid[row2][col2] = temp;
     setInternalGrid(newGrid);
     setGrid(newGrid); // Update parent's grid state
+    soundManager.playMove(); // Play move sound
 
     const matches = findAllMatches(newGrid);
     if (matches.length > 0) {
@@ -279,8 +283,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
         onMatch(newMatches);
         triggerMatchEffects(newMatches);
       }
-    }
-  };
+    }  };
 
   const gridVariants = {
     hidden: { opacity: 0 },
