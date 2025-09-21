@@ -290,18 +290,17 @@ function MainMenu({
       className={`min-h-screen flex flex-col items-center justify-center ${backgroundClass} p-200`}
     >
       {/* Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-10 flex justify-around items-center">
-        <div className="flex items-center">
-          <span className="text-xl">💖</span>
-          <span className="ml-1">{lives}</span>
+      <div className="absolute top-0 left-0 w-full p-4 flex justify-around items-center bg-white bg-opacity-20 backdrop-blur-sm rounded-b-xl shadow-lg">
+        <div className="flex items-center bg-red-500/80 px-4 py-2 rounded-full shadow-md">
+          <span className="text-3xl">💖</span>
+          <span className="ml-2 text-white text-2xl font-bold">{lives}</span>
         </div>
-        <div className="flex items-center">
-          <span className="text-xl"></span>
-          <span className="ml-1">{playerAvatar}</span>
+        <div className="flex items-center bg-blue-500/80 px-4 py-2 rounded-full shadow-md">
+          <span className="text-3xl">{playerAvatar}</span>
         </div>
-        <div className="flex items-center">
-          <span className="text-xl">💸</span>
-          <span className="ml-1">{coins}</span>
+        <div className="flex items-center bg-yellow-500/80 px-4 py-2 rounded-full shadow-md">
+          <span className="text-3xl">💸</span>
+          <span className="ml-2 text-white text-2xl font-bold">{coins}</span>
         </div>
       </div>
 
@@ -423,6 +422,9 @@ function MainMenu({
   );
 }
 
+const HINT_DELAY_MS = 10000; // 10 seconds of inactivity to trigger a hint
+const COMBO_DURATION_SECONDS = 3; // Duration for the combo timer
+
 function App() {
   const [score, setScore] = useState(0);
   const [matches, setMatches] = useState<number[][]>([]);
@@ -473,6 +475,7 @@ function App() {
   // Combo score state
   const [combo, setCombo] = useState(0);
   const [showCombo, setShowCombo] = useState(false);
+  const [comboTimer, setComboTimer] = useState(0); // New state for combo timer
 
   // Power-up states
   const [
@@ -500,6 +503,10 @@ function App() {
 
   // Background Music
   const backgroundMusicRef = useRef<HTMLAudioElement | null>(null);
+
+  // Hint System states
+  const [hintCoordinates, setHintCoordinates] = useState<[[number, number], [number, number]] | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load customization from storage
   useEffect(() => {
@@ -615,13 +622,28 @@ function App() {
 
       // Combo handling
       setCombo((prev) => prev + 1);
+      setComboTimer(COMBO_DURATION_SECONDS); // Reset combo timer on match
       setShowCombo(true);
     } else {
-      // Reset combo if no matches
+      // Reset combo if no matches (handled by comboTimer useEffect now)
       setShowCombo(false);
-      setCombo(0);
     }
   }, [matches, combo]);
+
+  // Combo Timer management
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (comboTimer > 0 && gameMode === "playing") {
+      timer = setInterval(() => {
+        setComboTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (comboTimer === 0 && combo > 0) {
+      setCombo(0); // Reset combo when timer runs out
+      setShowCombo(false);
+    }
+    return () => clearInterval(timer);
+  }, [comboTimer, combo, gameMode]);
+
 
   // Load from storage
   useEffect(() => {
@@ -661,7 +683,74 @@ function App() {
     }
   }, [lives, regenerationTime]);
 
-  const handleMatch = (newMatches: number[][]) => setMatches(newMatches);
+  // Function to find a valid hint move
+  const findHintMove = useCallback((currentGrid: string[][]): [[number, number], [number, number]] | null => {
+    if (!currentGrid || currentGrid.length === 0 || currentGrid[0].length === 0) return null;
+    const height = currentGrid.length;
+    const width = currentGrid[0].length;
+
+    for (let i = 0; i < height; i++) {
+      for (let j = 0; j < width; j++) {
+        // Try swapping horizontally
+        if (j < width - 1) {
+          const tempGrid = currentGrid.map(row => [...row]);
+          [tempGrid[i][j], tempGrid[i][j + 1]] = [tempGrid[i][j + 1], tempGrid[i][j]];
+          if (findAllMatches(tempGrid).length > 0) {
+            return [[i, j], [i, j + 1]];
+          }
+        }
+        // Try swapping vertically
+        if (i < height - 1) {
+          const tempGrid = currentGrid.map(row => [...row]);
+          [tempGrid[i][j], tempGrid[i + 1][j]] = [tempGrid[i + 1][j], tempGrid[i][j]];
+          if (findAllMatches(tempGrid).length > 0) {
+            return [[i, j], [i + 1, j]];
+          }
+        }
+      }
+    }
+    return null;
+  }, [findAllMatches]);
+
+  // Idle timer management
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    setHintCoordinates(null); // Clear hint when activity occurs
+    if (gameMode === "playing") {
+      idleTimerRef.current = setTimeout(() => {
+        if (grid) { // Only find hint if a grid exists
+          const hint = findHintMove(grid);
+          if (hint) {
+            setHintCoordinates(hint);
+          }
+        }
+      }, HINT_DELAY_MS);
+    }
+  }, [gameMode, grid, findHintMove]);
+
+  // Start/reset timer when game mode changes to playing or grid updates
+  useEffect(() => {
+    if (gameMode === "playing") {
+      resetIdleTimer();
+    } else {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+      setHintCoordinates(null);
+    }
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+    };
+  }, [gameMode, grid, resetIdleTimer]);
+
+  const handleMatch = (newMatches: number[][]) => {
+    resetIdleTimer(); // Reset timer on match
+    setMatches(newMatches);
+  };
   const handleGameOver = () => {
     soundManager.current.playGameOver(); // Play game over sound
     setIsGameOver(true);
@@ -679,6 +768,7 @@ function App() {
     setScore(0);
     setCombo(0); // Reset combo
     setShowCombo(false); // Hide combo display
+    setComboTimer(0); // Reset combo timer
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves);
       const newGrid = generateValidGrid(
@@ -691,6 +781,7 @@ function App() {
     setGameOver(false);
     setIsGameOver(false);
     setGameMode("playing");
+    resetIdleTimer(); // Reset timer on game reset
   };
 
   const handleExitClick = () => {
@@ -701,10 +792,12 @@ function App() {
     setScore(0); // Reset score
     setCombo(0); // Reset combo
     setShowCombo(false); // Hide combo display
+    setComboTimer(0); // Reset combo timer
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
     }
     setGrid(null); // Reset grid
+    resetIdleTimer(); // Reset timer on exit
   };
 
   const handleAdClick = () => {
@@ -712,6 +805,7 @@ function App() {
     setMovesLeft((prev) => prev + 10);
     setIsGameOver(false);
     setGameOver(false);
+    resetIdleTimer(); // Reset timer on ad click
   };
 
   const isLevelCompleted =
@@ -748,7 +842,8 @@ function App() {
       [type]: Math.max(0, prev[type] - 1),
     }));
     setActivePowerUp(null); // Deactivate after use
-  }, []);
+    resetIdleTimer(); // Reset timer on power-up use
+  }, [resetIdleTimer]);
 
   const isThemeUnlocked = (themeKey: string) => unlockedThemes.includes(themeKey);
 
@@ -781,26 +876,31 @@ function App() {
       }));
     }
     setShowPurchaseModal(false); // Close the purchase modal
+    resetIdleTimer(); // Reset timer on purchase
   };
 
   const handleDailyChallenge = () => {
     // Implement daily challenge logic here
     setGameMode("dailyChallenge");
+    resetIdleTimer(); // Reset timer on mode change
   };
 
   const handleArcadeMode = () => {
     // Implement arcade mode logic here
     setGameMode("arcadeMode");
+    resetIdleTimer(); // Reset timer on mode change
   };
 
   const handleMultiplayerMode = () => {
     // Implement multiplayer mode logic here
     setGameMode("multiplayerMode");
+    resetIdleTimer(); // Reset timer on mode change
   };
 
     const handlePlayerVsComputerMode = () => {
         // Implement player vs computer mode logic here
         setGameMode("playerVsComputer");
+        resetIdleTimer(); // Reset timer on mode change
     };
 
   // Check if lives are zero and show the ad for lives modal
@@ -817,6 +917,7 @@ function App() {
     setLives(5);
     setShowAdForLives(false);
     setRegenerationTime(null);
+    resetIdleTimer(); // Reset timer on watching ad for lives
   };
 
   // Daily Challenge```typescript
@@ -837,8 +938,9 @@ function App() {
       setScore(0); // Reset score
       setIsGameOver(false);
       setGameOver(false);
+      resetIdleTimer(); // Reset timer on daily challenge start
     }
-  }, [gameMode, currentTheme.colors, dailyChallengeMoves]);
+  }, [gameMode, currentTheme.colors, dailyChallengeMoves, resetIdleTimer]);
 
   // Arcade Mode setup
   const [arcadeLevel, setArcadeLevel] = useState(1);
@@ -855,8 +957,9 @@ function App() {
       setScore(0);
       setIsGameOver(false);
       setGameOver(false);
+      resetIdleTimer(); // Reset timer on arcade mode start
     }
-  }, [gameMode, currentTheme.colors, arcadeMoves]);
+  }, [gameMode, currentTheme.colors, arcadeMoves, resetIdleTimer]);
 
   // Multiplayer Mode setup
   const [multiplayerGrid, setMultiplayerGrid] = useState<string[][] | null>(
@@ -874,8 +977,9 @@ function App() {
       setScore(0);
       setIsGameOver(false);
       setGameOver(false);
+      resetIdleTimer(); // Reset timer on multiplayer mode start
     }
-  }, [gameMode, currentTheme.colors, multiplayerMoves]);
+  }, [gameMode, currentTheme.colors, multiplayerMoves, resetIdleTimer]);
 
     // Player vs Computer Mode setup
     const [playerVsComputerGrid, setPlayerVsComputerGrid] = useState<string[][] | null>(null);
@@ -891,8 +995,9 @@ function App() {
             setScore(0);
             setIsGameOver(false);
             setGameOver(false);
+            resetIdleTimer(); // Reset timer on player vs computer mode start
         }
-    }, [gameMode, currentTheme.colors, playerVsComputerMoves]);
+    }, [gameMode, currentTheme.colors, playerVsComputerMoves, resetIdleTimer]);
 
   // Background Music setup
   useEffect(() => {
@@ -967,7 +1072,10 @@ function App() {
             setMovesLeft(
               currentLevelConfig ? currentLevelConfig.maxMoves : 0
             ); // Reset moves
-            // MovesLeft will be set by the useEffect when currentLevelConfig updates
+            setCombo(0); // Reset combo
+            setComboTimer(0); // Reset combo timer
+            setShowCombo(false); // Hide combo display
+            resetIdleTimer(); // Reset timer on level select
           }}
           onBackToMenu={() => setGameMode("menu")}
           currentLevelId={currentLevelId}
@@ -995,6 +1103,8 @@ function App() {
             currentLevelId={currentLevelConfig.id}
             goalScore={currentLevelConfig.goalScore}
             movesLeft={movesLeft} // Pass movesLeft to ScoreBoard
+            combo={combo} // Pass combo to ScoreBoard
+            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
           />
           <div>💖: {lives}</div>
           <div>💸: {coins}</div>{" "}
@@ -1018,6 +1128,8 @@ function App() {
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy} // Set selected power-up
             powerUpInventory={powerUpInventory} // Pass powerUpInventory
             soundManager={soundManager.current} // Pass soundManager to GameGrid
+            hintCoordinates={hintCoordinates} // Pass hint coordinates
+            resetIdleTimer={resetIdleTimer} // Pass reset function
           />
           <div className="mt-4 flex justify-center">
             <PowerUpButtons
@@ -1044,6 +1156,8 @@ function App() {
             currentLevelId={0}
             goalScore={dailyChallengeGoal}
             movesLeft={movesLeft} // Pass movesLeft to ScoreBoard
+            combo={combo} // Pass combo to ScoreBoard
+            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
           />
           <p className="text-gray-700 mb-4">
             Test your skills with a new challenge every day!
@@ -1067,6 +1181,8 @@ function App() {
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy} // Set selected power-up
             powerUpInventory={powerUpInventory} // Pass powerUpInventory
             soundManager={soundManager.current} // Pass soundManager to GameGrid
+            hintCoordinates={hintCoordinates} // Pass hint coordinates
+            resetIdleTimer={resetIdleTimer} // Pass reset function
           />
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
@@ -1086,6 +1202,8 @@ function App() {
             currentLevelId={0}
             goalScore={arcadeGoal}
             movesLeft={movesLeft}
+            combo={combo} // Pass combo to ScoreBoard
+            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
           />
           <p className="text-gray-700 mb-4">
             Endless gameplay with increasing difficulty!
@@ -1109,6 +1227,8 @@ function App() {
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
             powerUpInventory={powerUpInventory}
             soundManager={soundManager.current} // Pass soundManager to GameGrid
+            hintCoordinates={hintCoordinates} // Pass hint coordinates
+            resetIdleTimer={resetIdleTimer} // Pass reset function
           />
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
@@ -1130,6 +1250,8 @@ function App() {
             currentLevelId={0}
             goalScore={multiplayerGoal}
             movesLeft={movesLeft}
+            combo={combo} // Pass combo to ScoreBoard
+            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
           />
           <p className="text-gray-700 mb-4">
             Challenge your friends in real-time!
@@ -1153,6 +1275,8 @@ function App() {
             setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
             powerUpInventory={powerUpInventory}
             soundManager={soundManager.current} // Pass soundManager to GameGrid
+            hintCoordinates={hintCoordinates} // Pass hint coordinates
+            resetIdleTimer={resetIdleTimer} // Pass reset function
           />
           <button
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
@@ -1174,6 +1298,8 @@ function App() {
                     currentLevelId={0}
                     goalScore={playerVsComputerGoal}
                     movesLeft={movesLeft}
+                    combo={combo} // Pass combo to ScoreBoard
+                    comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
                 />
                 <p className="text-gray-700 mb-4">
                     Challenge the computer!
@@ -1197,6 +1323,8 @@ function App() {
                     setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
                     powerUpInventory={powerUpInventory}
                     soundManager={soundManager.current} // Pass soundManager to GameGrid
+                    hintCoordinates={hintCoordinates} // Pass hint coordinates
+                    resetIdleTimer={resetIdleTimer} // Pass reset function
                 />
                 <button
                     className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
@@ -1229,6 +1357,7 @@ function App() {
                 // If lives > 0 and not completed, start regen timer
                 setRegenerationTime(Date.now() + 5 * 60 * 1000);
               }
+              resetIdleTimer(); // Reset timer on game over modal close
             }}
             onExit={() => {
               setLives((prev) => Math.max(prev - 1, 0));
@@ -1238,10 +1367,12 @@ function App() {
               setScore(0); // Reset score
               setCombo(0); // Reset combo
               setShowCombo(false); // Hide combo display
+              setComboTimer(0); // Reset combo timer
               if (currentLevelConfig) {
                 setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
               }
               setGrid(null); // Reset grid
+              resetIdleTimer(); // Reset timer on game over modal exit
             }}
             onAd={() => {
               handleAdClick();
@@ -1384,7 +1515,7 @@ function App() {
       )}
 
       <AnimatePresence>
-        {showCombo && (
+        {showCombo && combo > 0 && (
           <motion.div
             className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-bold text-yellow-500 z-50"
             initial={{ opacity: 0, scale: 0 }}
