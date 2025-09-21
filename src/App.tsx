@@ -1096,7 +1096,9 @@ function App() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Developer Information
             </h2>
-            <p>Information about the game developers.</p>
+            <p>I am Ahmed Hamdy, I work on developing light and distinctive games, and also on designing professional websites.
+
+</p>
             <button
               className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl mt-4"
               onClick={() => setShowDeveloperInfo(false)}
