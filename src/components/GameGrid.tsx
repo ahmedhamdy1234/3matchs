@@ -23,6 +23,8 @@ interface GameGridProps {
   setSelectedPowerUpToBuy: (type: PowerUpType | null) => void; // New prop to set selected power-up
   powerUpInventory: { [key in PowerUpType]: number }; // New prop for power-up inventory
   soundManager: SoundManager; // Add soundManager prop
+  hintCoordinates: [[number, number], [number, number]] | null; // New prop for hint
+  resetIdleTimer: () => void; // New prop to reset idle timer
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({
@@ -44,6 +46,8 @@ export const GameGrid: React.FC<GameGridProps> = ({
   setSelectedPowerUpToBuy,
   powerUpInventory,
   soundManager,
+  hintCoordinates, // Destructure hintCoordinates
+  resetIdleTimer, // Destructure resetIdleTimer
 }) => {
   const [internalGrid, setInternalGrid] = useState<string[][]>([]);
   const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(null);
@@ -113,6 +117,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
   };
 
   const handleClick = (row: number, col: number) => {
+    resetIdleTimer(); // Reset timer on any click
     if (activePowerUp) {
       handlePowerUpUse(row, col, activePowerUp);
       return;
@@ -138,6 +143,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
   };
 
   const swapSquares = (row1: number, col1: number, row2: number, col2: number) => {
+    resetIdleTimer(); // Reset timer on swap
     const newGrid = internalGrid.map(row => [...row]);
     const temp = newGrid[row1][col1];
     newGrid[row1][col1] = newGrid[row2][col2];
@@ -213,6 +219,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
   };
 
   const handlePowerUpUse = async (row: number, col: number, type: PowerUpType) => {
+    resetIdleTimer(); // Reset timer on power-up use
     if (powerUpInventory[type] <= 0) {
       setSelectedPowerUpToBuy(type);
       onNoPowerUpsAvailable();
@@ -332,18 +339,24 @@ export const GameGrid: React.FC<GameGridProps> = ({
       transition={{ duration: 0.5 }}
     >
       {internalGrid.map((row, rowIndex) => (
-        row.map((color, colIndex) => (
-          <Square
-            key={`${rowIndex}-${colIndex}`}
-            color={color}
-            onClick={() => handleClick(rowIndex, colIndex)}
-            isSelected={selectedSquare && selectedSquare[0] === rowIndex && selectedSquare[1] === colIndex}
-            variants={squareVariants}
-            animate={squareControls}
-            emojiMap={emojiMap} // Pass emoji map to Square
-            isPowerUpActive={!!activePowerUp} // Indicate if a power-up is active
-          />
-        ))
+        row.map((color, colIndex) => {
+          const isHinted = hintCoordinates &&
+                           ((hintCoordinates[0][0] === rowIndex && hintCoordinates[0][1] === colIndex) ||
+                            (hintCoordinates[1][0] === rowIndex && hintCoordinates[1][1] === colIndex));
+          return (
+            <Square
+              key={`${rowIndex}-${colIndex}`}
+              color={color}
+              onClick={() => handleClick(rowIndex, colIndex)}
+              isSelected={selectedSquare && selectedSquare[0] === rowIndex && selectedSquare[1] === colIndex}
+              variants={squareVariants}
+              animate={squareControls}
+              emojiMap={emojiMap} // Pass emoji map to Square
+              isPowerUpActive={!!activePowerUp} // Indicate if a power-up is active
+              isHinted={isHinted} // Pass isHinted prop
+            />
+          );
+        })
       ))}
     </motion.div>
   );

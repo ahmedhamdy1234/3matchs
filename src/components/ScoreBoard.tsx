@@ -5,9 +5,11 @@ interface ScoreBoardProps {
   currentLevelId: number;
   goalScore: number;
   movesLeft: number; // New prop for moves left
+  combo: number; // New prop for combo count
+  comboTimer: number; // New prop for combo timer
 }
 
-export const ScoreBoard: React.FC<ScoreBoardProps> = ({ score, currentLevelId, goalScore, movesLeft }) => {
+export const ScoreBoard: React.FC<ScoreBoardProps> = ({ score, currentLevelId, goalScore, movesLeft, combo, comboTimer }) => {
   const progressPercentage = Math.min(100, (score / goalScore) * 100);
 
   return (
@@ -15,6 +17,11 @@ export const ScoreBoard: React.FC<ScoreBoardProps> = ({ score, currentLevelId, g
       <h2 className="text-lg font-semibold text-gray-700">Score: {score}</h2>
       <h2 className="text-lg font-semibold text-gray-700">Level: {currentLevelId}</h2>
       <h2 className="text-lg font-semibold text-gray-700">Moves Left: {movesLeft}</h2> {/* Display moves left */}
+      {combo > 0 && (
+        <div className="text-lg font-bold text-yellow-600">
+          Combo: x{combo} ({comboTimer}s)
+        </div>
+      )}
       <div className="mt-2">
         <p className="text-sm text-gray-600">Progress to next level: {score}/{goalScore}</p>
         <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
