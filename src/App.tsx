@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { GameGrid } from "./components/GameGrid";
 import { ScoreBoard } from "./components/ScoreBoard";
-import { RefreshCw, X, Settings, Info, User, Play, Trophy, CalendarDays, Gamepad2, Users, Computer } from "lucide-react";
+import { RefreshCw, X, Settings, Info, User, Play, Trophy } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LevelMap } from "./components/LevelMap";
 import { LEVEL_DATA, Level } from "./levels";
@@ -248,10 +248,6 @@ function MainMenu({
   currentTheme,
   seasonalBackground,
   coins,
-  onDailyChallenge,
-  onArcadeMode,
-  onMultiplayerMode,
-    onPlayerVsComputerMode,
 }: any) {
   const heartEmojis = Array(lives).fill("💖").join("");
 
@@ -381,42 +377,6 @@ function MainMenu({
         >
           <Trophy size={18} /> Profile
         </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-            onClick={() => {
-                playMoveSound();
-                onDailyChallenge();
-            }}
-        >
-          <CalendarDays size={18} /> Daily Challenge
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-            onClick={() => {
-                playMoveSound();
-                onArcadeMode();
-            }}
-        >
-          <Gamepad2 size={18} /> Arcade Mode
-        </button>
-        <button
-          className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-            onClick={() => {
-                playMoveSound();
-                onMultiplayerMode();
-            }}
-        >
-          <Users size={18} /> Multiplayer Mode
-        </button>
-          <button
-              className={`${currentTheme.buttonClass} ${buttonBaseClass}`}
-              onClick={() => {
-                  playMoveSound();
-                  onPlayerVsComputerMode();
-              }}
-          >
-              <Computer size={18} /> Player vs Computer
-          </button>
       </motion.div>
     </div>
   );
@@ -438,10 +398,6 @@ function App() {
     | "menu"
     | "levelSelect"
     | "playing"
-    | "dailyChallenge"
-    | "arcadeMode"
-    | "multiplayerMode"
-    | "playerVsComputer"
   >("menu"); // New state for game flow
   const [showSettings, setShowSettings] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -879,30 +835,6 @@ function App() {
     resetIdleTimer(); // Reset timer on purchase
   };
 
-  const handleDailyChallenge = () => {
-    // Implement daily challenge logic here
-    setGameMode("dailyChallenge");
-    resetIdleTimer(); // Reset timer on mode change
-  };
-
-  const handleArcadeMode = () => {
-    // Implement arcade mode logic here
-    setGameMode("arcadeMode");
-    resetIdleTimer(); // Reset timer on mode change
-  };
-
-  const handleMultiplayerMode = () => {
-    // Implement multiplayer mode logic here
-    setGameMode("multiplayerMode");
-    resetIdleTimer(); // Reset timer on mode change
-  };
-
-    const handlePlayerVsComputerMode = () => {
-        // Implement player vs computer mode logic here
-        setGameMode("playerVsComputer");
-        resetIdleTimer(); // Reset timer on mode change
-    };
-
   // Check if lives are zero and show the ad for lives modal
   useEffect(() => {
     if (lives === 0 && gameMode !== "menu") {
@@ -919,85 +851,6 @@ function App() {
     setRegenerationTime(null);
     resetIdleTimer(); // Reset timer on watching ad for lives
   };
-
-  // Daily Challenge```typescript
-
-  // Daily Challenge setup
-  const [dailyChallengeGrid, setDailyChallengeGrid] = useState<
-    string[][] | null
-  >(null);
-  const [dailyChallengeGoal, setDailyChallengeGoal] = useState(5000); // Example goal
-  const [dailyChallengeMoves, setDailyChallengeMoves] = useState(40); // Example moves
-
-  // Generate daily challenge grid
-  useEffect(() => {
-    if (gameMode === "dailyChallenge") {
-      const newGrid = generateValidGrid(8, 8, currentTheme.colors);
-      setDailyChallengeGrid(newGrid);
-      setMovesLeft(dailyChallengeMoves); // Set moves for the challenge
-      setScore(0); // Reset score
-      setIsGameOver(false);
-      setGameOver(false);
-      resetIdleTimer(); // Reset timer on daily challenge start
-    }
-  }, [gameMode, currentTheme.colors, dailyChallengeMoves, resetIdleTimer]);
-
-  // Arcade Mode setup
-  const [arcadeLevel, setArcadeLevel] = useState(1);
-  const [arcadeGoal, setArcadeGoal]= useState(2000);
-  const [arcadeMoves, setArcadeMoves] = useState(30);
-  const [arcadeGrid, setArcadeGrid]= useState<string[][] | null>(null);
-
-  // Generate arcade grid
-  useEffect(() => {
-    if (gameMode === "arcadeMode") {
-      const newGrid = generateValidGrid(8, 8, currentTheme.colors);
-      setArcadeGrid(newGrid);
-      setMovesLeft(arcadeMoves);
-      setScore(0);
-      setIsGameOver(false);
-      setGameOver(false);
-      resetIdleTimer(); // Reset timer on arcade mode start
-    }
-  }, [gameMode, currentTheme.colors, arcadeMoves, resetIdleTimer]);
-
-  // Multiplayer Mode setup
-  const [multiplayerGrid, setMultiplayerGrid] = useState<string[][] | null>(
-    null
-  );
-  const [multiplayerGoal, setMultiplayerGoal] = useState(6000);
-  const [multiplayerMoves, setMultiplayerMoves] = useState(50);
-
-  // Generate multiplayer grid
-  useEffect(() => {
-    if (gameMode === "multiplayerMode") {
-      const newGrid = generateValidGrid(8, 8, currentTheme.colors);
-      setMultiplayerGrid(newGrid);
-      setMovesLeft(multiplayerMoves);
-      setScore(0);
-      setIsGameOver(false);
-      setGameOver(false);
-      resetIdleTimer(); // Reset timer on multiplayer mode start
-    }
-  }, [gameMode, currentTheme.colors, multiplayerMoves, resetIdleTimer]);
-
-    // Player vs Computer Mode setup
-    const [playerVsComputerGrid, setPlayerVsComputerGrid] = useState<string[][] | null>(null);
-    const [playerVsComputerGoal, setPlayerVsComputerGoal] = useState(4000);
-    const [playerVsComputerMoves, setPlayerVsComputerMoves] = useState(40);
-
-    // Generate player vs computer grid
-    useEffect(() => {
-        if (gameMode === "playerVsComputer") {
-            const newGrid = generateValidGrid(8, 8, currentTheme.colors);
-            setPlayerVsComputerGrid(newGrid);
-            setMovesLeft(playerVsComputerMoves);
-            setScore(0);
-            setIsGameOver(false);
-            setGameOver(false);
-            resetIdleTimer(); // Reset timer on player vs computer mode start
-        }
-    }, [gameMode, currentTheme.colors, playerVsComputerMoves, resetIdleTimer]);
 
   // Background Music setup
   useEffect(() => {
@@ -1052,10 +905,6 @@ function App() {
           currentTheme={currentTheme} // Pass current theme to MainMenu
           seasonalBackground={seasonalBackground} // Pass seasonal background
           coins={coins} // Pass coins to MainMenu
-          onDailyChallenge={handleDailyChallenge}
-          onArcadeMode={handleArcadeMode}
-          onMultiplayerMode={handleMultiplayerMode}
-            onPlayerVsComputerMode={handlePlayerVsComputerMode}
         />
       )}
 
@@ -1144,196 +993,6 @@ function App() {
           </div>
         </div>
       )}
-
-      {/* Daily Challenge Mode */}
-      {gameMode === "dailyChallenge" && dailyChallengeGrid && (
-        <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            Daily Challenge
-          </h1>
-          <ScoreBoard
-            score={score}
-            currentLevelId={0}
-            goalScore={dailyChallengeGoal}
-            movesLeft={movesLeft} // Pass movesLeft to ScoreBoard
-            combo={combo} // Pass combo to ScoreBoard
-            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
-          />
-          <p className="text-gray-700 mb-4">
-            Test your skills with a new challenge every day!
-          </p>
-          <GameGrid
-            width={8}
-            height={8}
-            colors={currentTheme.colors} // Use colors from selected theme
-            emojiMap={currentTheme.emojis} // Pass emoji map to GameGrid
-            onMatch={handleMatch}
-            setGameOver={handleGameOver}
-            hasPossibleMoves={hasPossibleMoves}
-            findAllMatches={findAllMatches}
-            setGrid={setDailyChallengeGrid}
-            activePowerUp={activePowerUp} // Pass active power-up
-            usePowerUp={usePowerUp} // Pass use power-up function
-            gridColors={currentTheme.colors} // Pass available colors for ColorSwap
-            movesLeft={movesLeft} // Pass movesLeft to GameGrid
-            setMovesLeft={setMovesLeft} // Pass setMovesLeft to GameGrid
-            onNoPowerUpsAvailable={() => setShowPurchaseModal(true)} // Show purchase modal
-            setSelectedPowerUpToBuy={setSelectedPowerUpToBuy} // Set selected power-up
-            powerUpInventory={powerUpInventory} // Pass powerUpInventory
-            soundManager={soundManager.current} // Pass soundManager to GameGrid
-            hintCoordinates={hintCoordinates} // Pass hint coordinates
-            resetIdleTimer={resetIdleTimer} // Pass reset function
-          />
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
-            onClick={() => setGameMode("menu")}
-          >
-            Back to Menu
-          </button>
-        </div>
-      )}
-
-      {/* Arcade Mode */}
-      {gameMode === "arcadeMode" && arcadeGrid && (
-        <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Arcade Mode</h1>
-          <ScoreBoard
-            score={score}
-            currentLevelId={0}
-            goalScore={arcadeGoal}
-            movesLeft={movesLeft}
-            combo={combo} // Pass combo to ScoreBoard
-            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
-          />
-          <p className="text-gray-700 mb-4">
-            Endless gameplay with increasing difficulty!
-          </p>
-          <GameGrid
-            width={8}
-            height={8}
-            colors={currentTheme.colors}
-            emojiMap={currentTheme.emojis}
-            onMatch={handleMatch}
-            setGameOver={handleGameOver}
-            hasPossibleMoves={hasPossibleMoves}
-            findAllMatches={findAllMatches}
-            setGrid={setArcadeGrid}
-            activePowerUp={activePowerUp}
-            usePowerUp={usePowerUp}
-            gridColors={currentTheme.colors}
-            movesLeft={movesLeft}
-            setMovesLeft={setMovesLeft}
-            onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
-            setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
-            powerUpInventory={powerUpInventory}
-            soundManager={soundManager.current} // Pass soundManager to GameGrid
-            hintCoordinates={hintCoordinates} // Pass hint coordinates
-            resetIdleTimer={resetIdleTimer} // Pass reset function
-          />
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
-            onClick={() => setGameMode("menu")}
-          >
-            Back to Menu
-          </button>
-        </div>
-      )}
-
-      {/* Multiplayer Mode */}
-      {gameMode === "multiplayerMode" && multiplayerGrid && (
-        <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            Multiplayer Mode
-          </h1>
-          <ScoreBoard
-            score={score}
-            currentLevelId={0}
-            goalScore={multiplayerGoal}
-            movesLeft={movesLeft}
-            combo={combo} // Pass combo to ScoreBoard
-            comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
-          />
-          <p className="text-gray-700 mb-4">
-            Challenge your friends in real-time!
-          </p>
-          <GameGrid
-            width={8}
-            height={8}
-            colors={currentTheme.colors}
-            emojiMap={currentTheme.emojis}
-            onMatch={handleMatch}
-            setGameOver={handleGameOver}
-            hasPossibleMoves={hasPossibleMoves}
-            findAllMatches={findAllMatches}
-            setGrid={setMultiplayerGrid}
-            activePowerUp={activePowerUp}
-            usePowerUp={usePowerUp}
-            gridColors={currentTheme.colors}
-            movesLeft={movesLeft}
-            setMovesLeft={setMovesLeft}
-            onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
-            setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
-            powerUpInventory={powerUpInventory}
-            soundManager={soundManager.current} // Pass soundManager to GameGrid
-            hintCoordinates={hintCoordinates} // Pass hint coordinates
-            resetIdleTimer={resetIdleTimer} // Pass reset function
-          />
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300"
-            onClick={() => setGameMode("menu")}
-          >
-            Back to Menu
-          </button>
-        </div>
-      )}
-
-        {/* Player vs Computer Mode */}
-        {gameMode === "playerVsComputer" && playerVsComputerGrid && (
-            <div className="p-8 rounded-xl shadow-lg border-2 border-gray-200 relative bg-gradient-to-br from-purple-200 to-blue-100">
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">
-                    Player vs Computer Mode
-                </h1>
-                <ScoreBoard
-                    score={score}
-                    currentLevelId={0}
-                    goalScore={playerVsComputerGoal}
-                    movesLeft={movesLeft}
-                    combo={combo} // Pass combo to ScoreBoard
-                    comboTimer={comboTimer} // Pass comboTimer to ScoreBoard
-                />
-                <p className="text-gray-700 mb-4">
-                    Challenge the computer!
-                </p>
-                <GameGrid
-                    width={8}
-                    height={8}
-                    colors={currentTheme.colors}
-                    emojiMap={currentTheme.emojis}
-                    onMatch={handleMatch}
-                    setGameOver={handleGameOver}
-                    hasPossibleMoves={hasPossibleMoves}
-                    findAllMatches={findAllMatches}
-                    setGrid={setPlayerVsComputerGrid}
-                    activePowerUp={activePowerUp}
-                    usePowerUp={usePowerUp}
-                    gridColors={currentTheme.colors}
-                    movesLeft={movesLeft}
-                    setMovesLeft={setMovesLeft}
-                    onNoPowerUpsAvailable={() => setShowPurchaseModal(true)}
-                    setSelectedPowerUpToBuy={setSelectedPowerUpToBuy}
-                    powerUpInventory={powerUpInventory}
-                    soundManager={soundManager.current} // Pass soundManager to GameGrid
-                    hintCoordinates={hintCoordinates} // Pass hint coordinates
-                    resetIdleTimer={resetIdleTimer} // Pass reset function
-                />
-                <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl shadow-md transition duration-300 mt-4"
-                    onClick={() => setGameMode("menu")}
-                >
-                    Back to Menu
-                </button>
-            </div>
-        )}
 
       <AnimatePresence>
         {isGameOver && (
