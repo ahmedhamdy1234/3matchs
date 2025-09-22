@@ -28,7 +28,6 @@ interface GameGridProps {
   resetIdleTimer: () => void; // New prop to reset idle timer
   initialGrid: Cell[][] | null; // New prop to receive initial grid from App.tsx
   levelHasIce: boolean; // New prop to indicate if the current level has ice
-  onPowerUpCellsCleared: (cellsToClear: number[][], type: PowerUpType) => void; // New prop for power-up grid update
 }
 
 export const GameGrid: React.FC<GameGridProps> = ({
@@ -54,7 +53,6 @@ export const GameGrid: React.FC<GameGridProps> = ({
   resetIdleTimer, // Destructure resetIdleTimer
   initialGrid, // Destructure initialGrid
   levelHasIce, // Destructure levelHasIce
-  onPowerUpCellsCleared, // Destructure new prop
 }) => {
   const [internalGrid, setInternalGrid] = useState<Cell[][]>([]); // Updated grid type
   const [selectedSquare, setSelectedSquare] = useState<[number, number] | null>(null);
@@ -65,6 +63,33 @@ export const GameGrid: React.FC<GameGridProps> = ({
   const [animationTrigger, setAnimationTrigger] = useState(0);
   // New state to trigger power-up animations
   const [powerUpAnimationTrigger, setPowerUpAnimationTrigger] = useState<{ type: PowerUpType, row: number, col: number } | null>(null);
+
+  // Define applyGravityAndRefill early, as it's a dependency for useEffects
+  const applyGravityAndRefill = useCallback((grid: Cell[][], cellsToClear: number[][]): Cell[][] => {
+    const newGrid = grid.map(row => row.map(cell => ({ ...cell }))); // Deep copy cells
+    cellsToClear.forEach(([row, col]) => {
+      if (row >= 0 && row < height && col >= 0 && col < width) {
+        newGrid[row][col] = { color: '', hasIce: false }; // Clear color and ice
+      }
+    });
+
+    for (let j = 0; j < width; j++) {
+      let emptyRows = 0;
+      for (let i = height - 1; i >= 0; i--) {
+        if (newGrid[i] && newGrid[i][j].color === '') {
+          emptyRows++;
+        } else if (emptyRows > 0 && newGrid[i]) {
+          newGrid[i + emptyRows][j] = newGrid[i][j];
+          newGrid[i][j] = { color: '', hasIce: false }; // Clear original position
+        }
+      }
+      for (let i = 0; i < emptyRows; i++) {
+        let color = colors[Math.floor(Math.random() * colors.length)];
+        newGrid[i][j] = { color, hasIce: false }; // New pieces never have ice
+      }
+    }
+    return newGrid;
+  }, [width, height, colors]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -102,7 +127,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
     }
   }, [internalGrid, onMatch, hasPossibleMoves, setGameOver, findAllMatches, movesLeft]);
 
-  // Effect to handle match animations (visual only, grid update handled by App.tsx)
+  // Effect to handle match animations
   useEffect(() => {
     if (animationTrigger > 0 && isMounted.current && internalGrid && internalGrid.length > 0) {
       const matches = findAllMatches(internalGrid); // Re-find matches for the current grid state
@@ -114,8 +139,10 @@ export const GameGrid: React.FC<GameGridProps> = ({
             transition: { duration: 0.5, ease: "easeInOut" },
           });
 
-          // Grid update (gravity and refill) is now handled by App.tsx after onMatch
-          // We only need to reset the animation state here
+          const updatedGrid = applyGravityAndRefill(internalGrid, matches);
+          setInternalGrid(updatedGrid);
+          setGrid(updatedGrid);
+
           squareControls.start({
             opacity: 1,
             scale: 1,
@@ -125,7 +152,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
         animateMatches();
       }
     }
-  }, [animationTrigger, isMounted, internalGrid, squareControls, findAllMatches]);
+  }, [animationTrigger, isMounted, internalGrid, squareControls, applyGravityAndRefill, setInternalGrid, setGrid, findAllMatches]);
 
 
   const createGrid = (width: number, height: number, colors: string[], levelHasIce: boolean): Cell[][] => {
@@ -194,7 +221,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
 
     const matches = findAllMatches(newGrid);
     if (matches.length > 0) {
-      onMatch(matches); // App.tsx will handle gravity/refill
+      onMatch(matches);
       setAnimationTrigger(prev => prev + 1); // Trigger match animation
       setMovesLeft(prev => prev - 1); // Decrement moves only on successful match
     } else {
@@ -244,7 +271,7 @@ export const GameGrid: React.FC<GameGridProps> = ({
     setPowerUpAnimationTrigger({ type, row, col });
   };
 
-  // Effect to handle power-up animations (visual only, grid update handled by App.tsx)
+  // Effect to handle power-up animations
   useEffect(() => {
     if (powerUpAnimationTrigger && isMounted.current && internalGrid && internalGrid.length > 0) {
       const { type, row, col } = powerUpAnimationTrigger;
@@ -271,20 +298,29 @@ export const GameGrid: React.FC<GameGridProps> = ({
             transition: { duration: 0.3, ease: "easeInOut" },
           });
 
-          // Delegate grid update to App.tsx
-          onPowerUpCellsCleared(cellsToAffect, type);
+          const updatedGrid = applyGravityAndRefill(internalGrid, cellsToAffect);
+          setInternalGrid(updatedGrid);
+          setGrid(updatedGrid);
+          usePowerUp(type); // Consume power-up
 
           squareControls.start({
             opacity: 1,
             scale: 1,
             transition: { duration: 0.3, ease: "easeInOut" },
           });
+
+          // After gravity and refill, check for new matches
+          const newMatches = findAllMatches(updatedGrid);
+          if (newMatches.length > 0) {
+            onMatch(newMatches);
+            setAnimationTrigger(prev => prev + 1); // Trigger general match animation
+          }
         }
         setPowerUpAnimationTrigger(null); // Reset trigger
       };
       animatePowerUp();
     }
-  }, [powerUpAnimationTrigger, isMounted, internalGrid, squareControls, onPowerUpCellsCleared, height, width]);
+  }, [powerUpAnimationTrigger, isMounted, internalGrid, squareControls, applyGravityAndRefill, setInternalGrid, setGrid, usePowerUp, findAllMatches, onMatch, height, width]);
 
 
   const gridVariants = {
