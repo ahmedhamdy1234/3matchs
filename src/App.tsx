@@ -578,39 +578,9 @@ function App() {
     }
   }, [currentLevelConfig]);
 
-  // Define applyGravityAndRefill in App.tsx
-  const applyGravityAndRefill = useCallback((currentGrid: Cell[][], cellsToClear: number[][]): Cell[][] => {
-    const newGrid = currentGrid.map(row => row.map(cell => ({ ...cell }))); // Deep copy cells
-    const height = newGrid.length;
-    const width = newGrid[0].length;
-
-    cellsToClear.forEach(([row, col]) => {
-      if (row >= 0 && row < height && col >= 0 && col < width) {
-        newGrid[row][col] = { color: '', hasIce: false }; // Clear color and ice
-      }
-    });
-
-    for (let j = 0; j < width; j++) {
-      let emptyRows = 0;
-      for (let i = height - 1; i >= 0; i--) {
-        if (newGrid[i] && newGrid[i][j].color === '') {
-          emptyRows++;
-        } else if (emptyRows > 0 && newGrid[i]) {
-          newGrid[i + emptyRows][j] = newGrid[i][j];
-          newGrid[i][j] = { color: '', hasIce: false }; // Clear original position
-        }
-      }
-      for (let i = 0; i < emptyRows; i++) {
-        let color = currentTheme.colors[Math.floor(Math.random() * currentTheme.colors.length)];
-        newGrid[i][j] = { color, hasIce: false }; // New pieces never have ice
-      }
-    }
-    return newGrid;
-  }, [currentTheme.colors]);
-
   // Matches handling
   useEffect(() => {
-    if (matches.length > 0 && grid) {
+    if (matches.length > 0) {
       soundManager.current.playMatch(); // Play match sound
       setScore((prev) => {
         const newScore = prev + matches.length * 10 * (combo > 0 ? combo : 1);
@@ -621,27 +591,24 @@ function App() {
       // Award coins for matches
       setCoins((prev) => prev + matches.length * 10);
       
-      let gridAfterIceClear = grid.map(row => row.map(cell => ({ ...cell }))); // Deep copy for ice clearing
       // Remove ice from matched cells
-      if (currentLevelConfig?.hasIce) {
+      if (grid && currentLevelConfig?.hasIce) {
+        const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
         matches.forEach(([r, c]) => {
-          if (gridAfterIceClear[r] && gridAfterIceClear[r][c]) {
-            gridAfterIceClear[r][c].hasIce = false; // Break the ice!
+          if (newGrid[r] && newGrid[r][c]) {
+            newGrid[r][c].hasIce = false; // Break the ice!
           }
         });
+        setGrid(newGrid); // Update the grid with broken ice
       }
 
-      // Apply gravity and refill AFTER ice clearing
-      const finalGrid = applyGravityAndRefill(gridAfterIceClear, matches);
-      setGrid(finalGrid); // Update the grid with broken ice, gravity, and refilled cells
-
-      setMatches([]); // Clear matches after processing
+      setMatches([]);
 
       // Combo handling
       setCombo((prev) => prev + 1);
       setComboTimer(COMBO_DURATION_SECONDS); // Reset combo timer on match
     }
-  }, [matches, combo, grid, currentLevelConfig, applyGravityAndRefill]); // Added applyGravityAndRefill to dependencies
+  }, [matches, combo, grid, currentLevelConfig]); // Added grid and currentLevelConfig to dependencies
 
   // Combo Timer management
   useEffect(() => {
@@ -867,21 +834,6 @@ function App() {
     resetIdleTimer(); // Reset timer on power-up use
   }, [resetIdleTimer]);
 
-  // New callback for GameGrid to use after power-up animation
-  const onPowerUpCellsCleared = useCallback((cellsToClear: number[][], type: PowerUpType) => {
-    if (!grid) return;
-    const updatedGrid = applyGravityAndRefill(grid, cellsToClear);
-    setGrid(updatedGrid);
-    usePowerUp(type); // Consume power-up
-
-    // After gravity and refill, check for new matches
-    const newMatches = findAllMatches(updatedGrid);
-    if (newMatches.length > 0) {
-      setMatches(newMatches); // Trigger match processing in App.tsx
-    }
-  }, [grid, applyGravityAndRefill, usePowerUp, findAllMatches, setMatches]);
-
-
   const isThemeUnlocked = (themeKey: string) => unlockedThemes.includes(themeKey);
 
   const handleThemePurchase = (themeKey: string) => {
@@ -1062,7 +1014,6 @@ function App() {
             resetIdleTimer={resetIdleTimer} // Pass reset function
             initialGrid={grid} // Pass the current grid state to GameGrid
             levelHasIce={currentLevelConfig.hasIce || false} // Pass if the level has ice
-            onPowerUpCellsCleared={onPowerUpCellsCleared} // Pass new callback
           />
           <div className="mt-4 flex justify-center">
             <PowerUpButtons
