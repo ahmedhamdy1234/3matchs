@@ -10,6 +10,7 @@ import { ProfileModal } from "./components/ProfileModal";
 import { PowerUpButtons, PowerUpType } from "./components/PowerUpButtons";
 import { GameOverModal } from "./components/GameOverModal";
 import { createSoundManager } from "./soundManager"; // Import sound manager
+import { Cell } from "./types"; // Import Cell interface
 
 // 🎨 THEMES
 const THEMES = {
@@ -120,7 +121,7 @@ const THEMES = {
 export const PLAYER_AVATARS = ["😀", "😎", "🥳", "🤩", "🤖", "👽"];
 
 // ⚡ findAllMatches
-const findAllMatches = (grid: string[][]): number[][] => {
+const findAllMatches = (grid: Cell[][]): number[][] => {
   if (!grid || grid.length === 0 || grid[0].length === 0) return [];
   const matches: number[][] = [];
   const height = grid.length;
@@ -129,13 +130,13 @@ const findAllMatches = (grid: string[][]): number[][] => {
   const checkHorizontal = () => {
     for (let i = 0; i < height; i++) {
       for (let j = 0; j < width - 2; ) {
-        const color = grid[i][j];
+        const color = grid[i][j].color;
         if (!color) {
           j++;
           continue;
         }
         let matchLength = 1;
-        while (j + matchLength < width && grid[i][j + matchLength] === color) {
+        while (j + matchLength < width && grid[i][j + matchLength].color === color) {
           matchLength++;
         }
         if (matchLength >= 3) {
@@ -153,13 +154,13 @@ const findAllMatches = (grid: string[][]): number[][] => {
   const checkVertical = () => {
     for (let j = 0; j < width; j++) {
       for (let i = 0; i < height - 2; ) {
-        const color = grid[i][j];
+        const color = grid[i][j].color;
         if (!color) {
           i++;
           continue;
         }
         let matchLength = 1;
-        while (i + matchLength < height && grid[i + matchLength][j] === color) {
+        while (i + matchLength < height && grid[i + matchLength][j].color === color) {
           matchLength++;
         }
         if (matchLength >= 3) {
@@ -187,19 +188,21 @@ const findAllMatches = (grid: string[][]): number[][] => {
 };
 
 // ⚡ hasPossibleMoves
-const hasPossibleMoves = (grid: string[][]): boolean => {
+const hasPossibleMoves = (grid: Cell[][]): boolean => {
   if (!grid || grid.length === 0 || grid[0].length === 0) return false;
   const height = grid.length;
   const width = grid[0].length;
   for (let i = 0; i < height; i++) {
     for (let j = 0; j < width; j++) {
+      // Try swapping horizontally
       if (j < width - 1) {
-        const copy = grid.map((r) => [...r]);
+        const copy = grid.map((r) => r.map(cell => ({ ...cell }))); // Deep copy cells
         [copy[i][j], copy[i][j + 1]] = [copy[i][j + 1], copy[i][j]];
         if (findAllMatches(copy).length > 0) return true;
       }
+      // Try swapping vertically
       if (i < height - 1) {
-        const copy = grid.map((r) => [...r]);
+        const copy = grid.map((r) => r.map(cell => ({ ...cell }))); // Deep copy cells
         [copy[i][j], copy[i + 1][j]] = [copy[i + 1][j], copy[i][j]];
         if (findAllMatches(copy).length > 0) return true;
       }
@@ -212,16 +215,23 @@ const hasPossibleMoves = (grid: string[][]): boolean => {
 const generateValidGrid = (
   width: number,
   height: number,
-  colors: string[]
-): string[][] => {
-  let grid: string[][];
+  colors: string[],
+  levelHasIce: boolean
+): Cell[][] => {
+  let grid: Cell[][];
   let attempts = 0;
   do {
-    grid = Array.from({ length: height }, () =>
-      Array.from(
-        { length: width },
-        () => colors[Math.floor(Math.random() * colors.length)]
-      )
+    grid = Array.from({ length: height }, (_, r) =>
+      Array.from({ length: width }, (_, c) => {
+        let color = colors[Math.floor(Math.random() * colors.length)];
+        // Ensure no initial matches
+        while (isInitialMatch(grid, r, c, color)) {
+          color = colors[Math.floor(Math.random() * colors.length)];
+        }
+        // Randomly assign ice for ice levels, or based on a pattern
+        const hasIce = levelHasIce && Math.random() < 0.5; // 50% chance for ice
+        return { color, hasIce };
+      })
     );
     attempts++;
     if (attempts > 200) {
@@ -235,6 +245,19 @@ const generateValidGrid = (
   return grid;
 };
 
+// Helper for generateValidGrid to prevent initial matches
+const isInitialMatch = (grid: Cell[][], row: number, col: number, color: string): boolean => {
+  // Check horizontal
+  if (col >= 2 && grid[row][col - 1]?.color === color && grid[row][col - 2]?.color === color) {
+    return true;
+  }
+  // Check vertical
+  if (row >= 2 && grid[row - 1][col]?.color === color && grid[row - 2][col]?.color === color) {
+    return true;
+  }
+  return false;
+};
+
 // Main Menu
 function MainMenu({
   onStart,
@@ -243,22 +266,13 @@ function MainMenu({
   onDevInfo,
   onProfile,
   lives,
-  timeLeft,
+  regenerationTime, // Pass regenerationTime
+  timeLeft, // Pass timeLeft
   playerAvatar,
   currentTheme,
   seasonalBackground,
   coins,
 }: any) {
-  const heartEmojis = Array(lives).fill("💖").join("");
-
-  const livesAnimation = {
-    initial: { scale: 1 },
-    animate: {
-      scale: 1.2,
-      transition: { duration: 0.5, repeat: Infinity, repeatType: "reverse" },
-    },
-  };
-
   const formatTime = (ms: number) => {
     const totalSeconds = Math.max(0, Math.floor(ms / 1000));
     const minutes = Math.floor(totalSeconds / 60);
@@ -290,6 +304,9 @@ function MainMenu({
         <div className="flex items-center bg-red-500/80 px-4 py-2 rounded-full shadow-md">
           <span className="text-3xl">💖</span>
           <span className="ml-2 text-white text-2xl font-bold">{lives}</span>
+          {lives < 5 && timeLeft !== null && timeLeft > 0 && (
+            <span className="ml-2 text-white text-sm">({formatTime(timeLeft)})</span>
+          )}
         </div>
         <div className="flex items-center bg-blue-500/80 px-4 py-2 rounded-full shadow-md">
           <span className="text-3xl">{playerAvatar}</span>
@@ -405,8 +422,8 @@ function App() {
   const [showProfile, setShowProfile] = useState(false); // New state for profile modal
   const [lives, setLives] = useState(5);
   const [regenerationTime, setRegenerationTime] = useState<number | null>(null);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [grid, setGrid] = useState<string[][] | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null); // State for time until next life
+  const [grid, setGrid] = useState<Cell[][] | null>(null); // Changed grid type to Cell[][]
   const [movesLeft, setMovesLeft] = useState(0); // New state for moves
   const [isGameOver, setIsGameOver] = useState(false); // New state for game over popup
   const [showPurchaseModal, setShowPurchaseModal] = useState(false); // New state for purchase modal
@@ -430,7 +447,6 @@ function App() {
 
   // Combo score state
   const [combo, setCombo] = useState(0);
-  const [showCombo, setShowCombo] = useState(false);
   const [comboTimer, setComboTimer] = useState(0); // New state for combo timer
 
   // Power-up states
@@ -562,9 +578,39 @@ function App() {
     }
   }, [currentLevelConfig]);
 
+  // Define applyGravityAndRefill in App.tsx
+  const applyGravityAndRefill = useCallback((currentGrid: Cell[][], cellsToClear: number[][]): Cell[][] => {
+    const newGrid = currentGrid.map(row => row.map(cell => ({ ...cell }))); // Deep copy cells
+    const height = newGrid.length;
+    const width = newGrid[0].length;
+
+    cellsToClear.forEach(([row, col]) => {
+      if (row >= 0 && row < height && col >= 0 && col < width) {
+        newGrid[row][col] = { color: '', hasIce: false }; // Clear color and ice
+      }
+    });
+
+    for (let j = 0; j < width; j++) {
+      let emptyRows = 0;
+      for (let i = height - 1; i >= 0; i--) {
+        if (newGrid[i] && newGrid[i][j].color === '') {
+          emptyRows++;
+        } else if (emptyRows > 0 && newGrid[i]) {
+          newGrid[i + emptyRows][j] = newGrid[i][j];
+          newGrid[i][j] = { color: '', hasIce: false }; // Clear original position
+        }
+      }
+      for (let i = 0; i < emptyRows; i++) {
+        let color = currentTheme.colors[Math.floor(Math.random() * currentTheme.colors.length)];
+        newGrid[i][j] = { color, hasIce: false }; // New pieces never have ice
+      }
+    }
+    return newGrid;
+  }, [currentTheme.colors]);
+
   // Matches handling
   useEffect(() => {
-    if (matches.length > 0) {
+    if (matches.length > 0 && grid) {
       soundManager.current.playMatch(); // Play match sound
       setScore((prev) => {
         const newScore = prev + matches.length * 10 * (combo > 0 ? combo : 1);
@@ -574,17 +620,28 @@ function App() {
       });
       // Award coins for matches
       setCoins((prev) => prev + matches.length * 10);
-      setMatches([]);
+      
+      let gridAfterIceClear = grid.map(row => row.map(cell => ({ ...cell }))); // Deep copy for ice clearing
+      // Remove ice from matched cells
+      if (currentLevelConfig?.hasIce) {
+        matches.forEach(([r, c]) => {
+          if (gridAfterIceClear[r] && gridAfterIceClear[r][c]) {
+            gridAfterIceClear[r][c].hasIce = false; // Break the ice!
+          }
+        });
+      }
+
+      // Apply gravity and refill AFTER ice clearing
+      const finalGrid = applyGravityAndRefill(gridAfterIceClear, matches);
+      setGrid(finalGrid); // Update the grid with broken ice, gravity, and refilled cells
+
+      setMatches([]); // Clear matches after processing
 
       // Combo handling
       setCombo((prev) => prev + 1);
       setComboTimer(COMBO_DURATION_SECONDS); // Reset combo timer on match
-      setShowCombo(true);
-    } else {
-      // Reset combo if no matches (handled by comboTimer useEffect now)
-      setShowCombo(false);
     }
-  }, [matches, combo]);
+  }, [matches, combo, grid, currentLevelConfig, applyGravityAndRefill]); // Added applyGravityAndRefill to dependencies
 
   // Combo Timer management
   useEffect(() => {
@@ -595,7 +652,6 @@ function App() {
       }, 1000);
     } else if (comboTimer === 0 && combo > 0) {
       setCombo(0); // Reset combo when timer runs out
-      setShowCombo(false);
     }
     return () => clearInterval(timer);
   }, [comboTimer, combo, gameMode]);
@@ -621,26 +677,28 @@ function App() {
   // Regenerate lives + countdown
   useEffect(() => {
     if (lives < 5 && regenerationTime === null) {
-      setRegenerationTime(Date.now() + 5 * 60 * 1000);
+      setRegenerationTime(Date.now() + 5 * 60 * 1000); // 5 minutes
     }
 
     if (regenerationTime && lives < 5) {
       const timer = setInterval(() => {
         const diff = regenerationTime - Date.now();
+        setTimeLeft(diff > 0 ? diff : 0); // Update App's timeLeft state
         if (diff <= 0) {
+          clearInterval(timer);
           setLives((prev) => Math.min(prev + 1, 5));
           setRegenerationTime(null);
-          setTimeLeft(null);
-        } else {
-          setTimeLeft(diff);
+          setTimeLeft(null); // Reset timeLeft when a life regenerates
         }
       }, 1000);
       return () => clearInterval(timer);
+    } else {
+      setTimeLeft(null); // If lives are full or no regeneration time, clear timeLeft
     }
   }, [lives, regenerationTime]);
 
   // Function to find a valid hint move
-  const findHintMove = useCallback((currentGrid: string[][]): [[number, number], [number, number]] | null => {
+  const findHintMove = useCallback((currentGrid: Cell[][]): [[number, number], [number, number]] | null => {
     if (!currentGrid || currentGrid.length === 0 || currentGrid[0].length === 0) return null;
     const height = currentGrid.length;
     const width = currentGrid[0].length;
@@ -649,7 +707,7 @@ function App() {
       for (let j = 0; j < width; j++) {
         // Try swapping horizontally
         if (j < width - 1) {
-          const tempGrid = currentGrid.map(row => [...row]);
+          const tempGrid = currentGrid.map(row => row.map(cell => ({ ...cell })));
           [tempGrid[i][j], tempGrid[i][j + 1]] = [tempGrid[i][j + 1], tempGrid[i][j]];
           if (findAllMatches(tempGrid).length > 0) {
             return [[i, j], [i, j + 1]];
@@ -657,7 +715,7 @@ function App() {
         }
         // Try swapping vertically
         if (i < height - 1) {
-          const tempGrid = currentGrid.map(row => [...row]);
+          const tempGrid = currentGrid.map(row => row.map(cell => ({ ...cell })));
           [tempGrid[i][j], tempGrid[i + 1][j]] = [tempGrid[i + 1][j], tempGrid[i][j]];
           if (findAllMatches(tempGrid).length > 0) {
             return [[i, j], [i + 1, j]];
@@ -723,14 +781,14 @@ function App() {
   const resetGame = () => {
     setScore(0);
     setCombo(0); // Reset combo
-    setShowCombo(false); // Hide combo display
     setComboTimer(0); // Reset combo timer
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves);
       const newGrid = generateValidGrid(
         currentLevelConfig.width,
         currentLevelConfig.height,
-        currentTheme.colors
+        currentTheme.colors,
+        currentLevelConfig.hasIce || false // Pass hasIce to grid generation
       );
       setGrid(newGrid);
     }
@@ -747,7 +805,6 @@ function App() {
     setGameMode("levelSelect");
     setScore(0); // Reset score
     setCombo(0); // Reset combo
-    setShowCombo(false); // Hide combo display
     setComboTimer(0); // Reset combo timer
     if (currentLevelConfig) {
       setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
@@ -764,24 +821,33 @@ function App() {
     resetIdleTimer(); // Reset timer on ad click
   };
 
+  // Check if all ice is cleared
+  const isIceCleared = useCallback((currentGrid: Cell[][]): boolean => {
+    if (!currentLevelConfig?.hasIce) return true; // Not an ice level, so ice is "cleared"
+    return currentGrid.every(row => row.every(cell => !cell.hasIce));
+  }, [currentLevelConfig]);
+
   const isLevelCompleted =
-    currentLevelConfig && score >= currentLevelConfig.goalScore && movesLeft >= 0;
+    currentLevelConfig &&
+    score >= currentLevelConfig.goalScore &&
+    movesLeft >= 0 &&
+    isIceCleared(grid || []); // Also check if ice is cleared
 
   useEffect(() => {
-    if (gameMode === "playing" && currentLevelConfig) {
-      if (score >= currentLevelConfig.goalScore) {
+    if (gameMode === "playing" && currentLevelConfig && grid) {
+      if (score >= currentLevelConfig.goalScore && isIceCleared(grid)) {
         soundManager.current.playLevelUp(); // Play level up sound
         setIsGameOver(true);
         setGameOver(true); // Level complete condition
-      } else if (movesLeft <= 0 || (grid && !hasPossibleMoves(grid))) {
+      } else if (movesLeft <= 0 || !hasPossibleMoves(grid)) {
         setIsGameOver(true);
         setGameOver(true); // Game over condition (no moves or no possible moves)
       }
     }
-  }, [grid, gameMode, movesLeft, score, currentLevelConfig, hasPossibleMoves]);
+  }, [grid, gameMode, movesLeft, score, currentLevelConfig, hasPossibleMoves, isIceCleared]);
 
   const handleLevelComplete = () => {
-    if (currentLevelConfig && score >= currentLevelConfig.goalScore) {
+    if (currentLevelConfig && score >= currentLevelConfig.goalScore && isIceCleared(grid || [])) {
       setTotalLevelsCompleted((prev) => prev + 1); // Increment total levels completed
       setCoins((prev) => prev + 500); // Award coins for completing the level
       const nextLevelId = currentLevelConfig.id + 1;
@@ -800,6 +866,21 @@ function App() {
     setActivePowerUp(null); // Deactivate after use
     resetIdleTimer(); // Reset timer on power-up use
   }, [resetIdleTimer]);
+
+  // New callback for GameGrid to use after power-up animation
+  const onPowerUpCellsCleared = useCallback((cellsToClear: number[][], type: PowerUpType) => {
+    if (!grid) return;
+    const updatedGrid = applyGravityAndRefill(grid, cellsToClear);
+    setGrid(updatedGrid);
+    usePowerUp(type); // Consume power-up
+
+    // After gravity and refill, check for new matches
+    const newMatches = findAllMatches(updatedGrid);
+    if (newMatches.length > 0) {
+      setMatches(newMatches); // Trigger match processing in App.tsx
+    }
+  }, [grid, applyGravityAndRefill, usePowerUp, findAllMatches, setMatches]);
+
 
   const isThemeUnlocked = (themeKey: string) => unlockedThemes.includes(themeKey);
 
@@ -900,7 +981,8 @@ function App() {
           onDevInfo={() => setShowDeveloperInfo(true)}
           onProfile={() => setShowProfile(true)} // Open profile modal
           lives={lives}
-          timeLeft={timeLeft}
+          regenerationTime={regenerationTime} // Pass regenerationTime to MainMenu
+          timeLeft={timeLeft} // Pass timeLeft to MainMenu
           playerAvatar={playerAvatar}
           currentTheme={currentTheme} // Pass current theme to MainMenu
           seasonalBackground={seasonalBackground} // Pass seasonal background
@@ -923,7 +1005,6 @@ function App() {
             ); // Reset moves
             setCombo(0); // Reset combo
             setComboTimer(0); // Reset combo timer
-            setShowCombo(false); // Hide combo display
             resetIdleTimer(); // Reset timer on level select
           }}
           onBackToMenu={() => setGameMode("menu")}
@@ -979,6 +1060,9 @@ function App() {
             soundManager={soundManager.current} // Pass soundManager to GameGrid
             hintCoordinates={hintCoordinates} // Pass hint coordinates
             resetIdleTimer={resetIdleTimer} // Pass reset function
+            initialGrid={grid} // Pass the current grid state to GameGrid
+            levelHasIce={currentLevelConfig.hasIce || false} // Pass if the level has ice
+            onPowerUpCellsCleared={onPowerUpCellsCleared} // Pass new callback
           />
           <div className="mt-4 flex justify-center">
             <PowerUpButtons
@@ -1025,7 +1109,6 @@ function App() {
               setGameMode("levelSelect");
               setScore(0); // Reset score
               setCombo(0); // Reset combo
-              setShowCombo(false); // Hide combo display
               setComboTimer(0); // Reset combo timer
               if (currentLevelConfig) {
                 setMovesLeft(currentLevelConfig.maxMoves); // Reset moves
@@ -1096,9 +1179,7 @@ function App() {
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">
               Developer Information
             </h2>
-            <p>I am Ahmed Hamdy, I work on developing light and distinctive games, and also on designing professional websites.
-
-</p>
+            <p>I am Ahmed Hamdy, I work on developing light and distinctive games, and also on designing professional websites.</p>
             <button
               className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl mt-4"
               onClick={() => setShowDeveloperInfo(false)}
@@ -1174,20 +1255,6 @@ function App() {
           </div>
         </div>
       )}
-
-      <AnimatePresence>
-        {showCombo && combo > 0 && (
-          <motion.div
-            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl font-bold text-yellow-500 z-50"
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            Combo x{combo}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
