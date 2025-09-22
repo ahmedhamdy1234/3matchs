@@ -211,40 +211,6 @@ const hasPossibleMoves = (grid: Cell[][]): boolean => {
   return false;
 };
 
-// ⚡ generateValidGrid (المعدل)
-const generateValidGrid = (
-  width: number,
-  height: number,
-  colors: string[],
-  levelHasIce: boolean
-): Cell[][] => {
-  let grid: Cell[][];
-  let attempts = 0;
-  do {
-    grid = Array.from({ length: height }, (_, r) =>
-      Array.from({ length: width }, (_, c) => {
-        let color = colors[Math.floor(Math.random() * colors.length)];
-        // Ensure no initial matches
-        while (isInitialMatch(grid, r, c, color)) {
-          color = colors[Math.floor(Math.random() * colors.length)];
-        }
-        // Randomly assign ice for ice levels, or based on a pattern
-        const hasIce = levelHasIce && Math.random() < 0.5; // 50% chance for ice
-        return { color, hasIce };
-      })
-    );
-    attempts++;
-    if (attempts > 200) {
-      console.warn("⚠️ Failed to generate valid grid after 200 attempts.");
-      break;
-    }
-  } while (
-    (findAllMatches(grid).length > 0 || !hasPossibleMoves(grid)) &&
-    attempts <= 200
-  );
-  return grid;
-};
-
 // Helper for generateValidGrid to prevent initial matches
 const isInitialMatch = (grid: Cell[][], row: number, col: number, color: string): boolean => {
   // Check horizontal
@@ -256,6 +222,42 @@ const isInitialMatch = (grid: Cell[][], row: number, col: number, color: string)
     return true;
   }
   return false;
+};
+
+// ⚡ generateValidGrid (المعدل)
+const generateValidGrid = (
+  width: number,
+  height: number,
+  colors: string[],
+  levelHasIce: boolean
+): Cell[][] => {
+  let grid: Cell[][];
+  let attempts = 0;
+  do {
+    const tempGrid: Cell[][] = []; // This will be the grid we build and pass to isInitialMatch
+    for (let r = 0; r < height; r++) {
+      tempGrid.push([]); // Add an empty row
+      for (let c = 0; c < width; c++) {
+        let color = colors[Math.floor(Math.random() * colors.length)];
+        // Ensure no initial matches with the *current state* of tempGrid
+        while (isInitialMatch(tempGrid, r, c, color)) {
+          color = colors[Math.floor(Math.random() * colors.length)];
+        }
+        const hasIce = levelHasIce && Math.random() < 0.5;
+        tempGrid[r].push({ color, hasIce }); // Add the cell to the current row
+      }
+    }
+    grid = tempGrid; // Assign the fully built tempGrid to grid for the do-while condition checks
+    attempts++;
+    if (attempts > 200) {
+      console.warn("⚠️ Failed to generate valid grid after 200 attempts.");
+      break;
+    }
+  } while (
+    (findAllMatches(grid).length > 0 || !hasPossibleMoves(grid)) &&
+    attempts <= 200
+  );
+  return grid;
 };
 
 // Main Menu
@@ -578,9 +580,39 @@ function App() {
     }
   }, [currentLevelConfig]);
 
+  // Define applyGravityAndRefill in App.tsx
+  const applyGravityAndRefill = useCallback((currentGrid: Cell[][], cellsToClear: number[][]): Cell[][] => {
+    const newGrid = currentGrid.map(row => row.map(cell => ({ ...cell }))); // Deep copy cells
+    const height = newGrid.length;
+    const width = newGrid[0].length;
+
+    cellsToClear.forEach(([row, col]) => {
+      if (row >= 0 && row < height && col >= 0 && col < width) {
+        newGrid[row][col] = { color: '', hasIce: false }; // Clear color and ice
+      }
+    });
+
+    for (let j = 0; j < width; j++) {
+      let emptyRows = 0;
+      for (let i = height - 1; i >= 0; i--) {
+        if (newGrid[i] && newGrid[i][j].color === '') {
+          emptyRows++;
+        } else if (emptyRows > 0 && newGrid[i]) {
+          newGrid[i + emptyRows][j] = newGrid[i][j];
+          newGrid[i][j] = { color: '', hasIce: false }; // Clear original position
+        }
+      }
+      for (let i = 0; i < emptyRows; i++) {
+        let color = currentTheme.colors[Math.floor(Math.random() * currentTheme.colors.length)];
+        newGrid[i][j] = { color, hasIce: false }; // New pieces never have ice
+      }
+    }
+    return newGrid;
+  }, [currentTheme.colors]);
+
   // Matches handling
   useEffect(() => {
-    if (matches.length > 0) {
+    if (matches.length > 0 && grid) {
       soundManager.current.playMatch(); // Play match sound
       setScore((prev) => {
         const newScore = prev + matches.length * 10 * (combo > 0 ? combo : 1);
@@ -591,24 +623,27 @@ function App() {
       // Award coins for matches
       setCoins((prev) => prev + matches.length * 10);
       
+      let gridAfterIceClear = grid.map(row => row.map(cell => ({ ...cell }))); // Deep copy for ice clearing
       // Remove ice from matched cells
-      if (grid && currentLevelConfig?.hasIce) {
-        const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+      if (currentLevelConfig?.hasIce) {
         matches.forEach(([r, c]) => {
-          if (newGrid[r] && newGrid[r][c]) {
-            newGrid[r][c].hasIce = false; // Break the ice!
+          if (gridAfterIceClear[r] && gridAfterIceClear[r][c]) {
+            gridAfterIceClear[r][c].hasIce = false; // Break the ice!
           }
         });
-        setGrid(newGrid); // Update the grid with broken ice
       }
 
-      setMatches([]);
+      // Apply gravity and refill AFTER ice clearing
+      const finalGrid = applyGravityAndRefill(gridAfterIceClear, matches);
+      setGrid(finalGrid); // Update the grid with broken ice, gravity, and refilled cells
+
+      setMatches([]); // Clear matches after processing
 
       // Combo handling
       setCombo((prev) => prev + 1);
       setComboTimer(COMBO_DURATION_SECONDS); // Reset combo timer on match
     }
-  }, [matches, combo, grid, currentLevelConfig]); // Added grid and currentLevelConfig to dependencies
+  }, [matches, combo, grid, currentLevelConfig, applyGravityAndRefill]); // Added applyGravityAndRefill to dependencies
 
   // Combo Timer management
   useEffect(() => {
@@ -834,6 +869,21 @@ function App() {
     resetIdleTimer(); // Reset timer on power-up use
   }, [resetIdleTimer]);
 
+  // New callback for GameGrid to use after power-up animation
+  const onPowerUpCellsCleared = useCallback((cellsToClear: number[][], type: PowerUpType) => {
+    if (!grid) return;
+    const updatedGrid = applyGravityAndRefill(grid, cellsToClear);
+    setGrid(updatedGrid);
+    usePowerUp(type); // Consume power-up
+
+    // After gravity and refill, check for new matches
+    const newMatches = findAllMatches(updatedGrid);
+    if (newMatches.length > 0) {
+      setMatches(newMatches); // Trigger match processing in App.tsx
+    }
+  }, [grid, applyGravityAndRefill, usePowerUp, findAllMatches, setMatches]);
+
+
   const isThemeUnlocked = (themeKey: string) => unlockedThemes.includes(themeKey);
 
   const handleThemePurchase = (themeKey: string) => {
@@ -946,18 +996,26 @@ function App() {
         <LevelMap
           unlockedLevels={unlockedLevels}
           onLevelSelect={(levelId) => {
-            setCurrentLevelId(levelId);
-            setGameMode("playing");
-            setScore(0); // Reset score for newlevel
-            setGameOver(false); // Ensuregame is not over
-            setIsGameOver(false);
-            setGrid(null); // Reset the grid
-            setMovesLeft(
-              currentLevelConfig ? currentLevelConfig.maxMoves : 0
-            ); // Reset moves
-            setCombo(0); // Reset combo
-            setComboTimer(0); // Reset combo timer
-            resetIdleTimer(); // Reset timer on level select
+            const selectedLevelConfig = LEVEL_DATA.find(l => l.id === levelId);
+            if (selectedLevelConfig) {
+              setCurrentLevelId(levelId);
+              setGameMode("playing");
+              setScore(0); // Reset score for newlevel
+              setGameOver(false); // Ensuregame is not over
+              setIsGameOver(false);
+              // Generate the grid immediately for the selected level
+              const newGrid = generateValidGrid(
+                selectedLevelConfig.width,
+                selectedLevelConfig.height,
+                currentTheme.colors,
+                selectedLevelConfig.hasIce || false
+              );
+              setGrid(newGrid);
+              setMovesLeft(selectedLevelConfig.maxMoves); // Reset moves
+              setCombo(0); // Reset combo
+              setComboTimer(0); // Reset combo timer
+              resetIdleTimer(); // Reset timer on level select
+            }
           }}
           onBackToMenu={() => setGameMode("menu")}
           currentLevelId={currentLevelId}
@@ -1014,6 +1072,7 @@ function App() {
             resetIdleTimer={resetIdleTimer} // Pass reset function
             initialGrid={grid} // Pass the current grid state to GameGrid
             levelHasIce={currentLevelConfig.hasIce || false} // Pass if the level has ice
+            onPowerUpCellsCleared={onPowerUpCellsCleared} // Pass new callback
           />
           <div className="mt-4 flex justify-center">
             <PowerUpButtons
